@@ -1413,3 +1413,143 @@
     </script>
 </body>
 </html>
+
+<!-- Password Reset Form (Hidden by default) -->
+<div id="password-reset-screen" class="login-container hidden">
+    <div class="bg-white p-8 md:p-12 rounded-lg shadow-xl w-full max-w-md">
+        <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Set New Password</h2>
+        <form id="password-reset-form" onsubmit="handlePasswordReset(event)">
+            <div class="mb-4">
+                <label for="new-password-reset" class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                <input type="password" id="new-password-reset" name="new-password-reset" required
+                       class="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                       placeholder="Enter new password">
+            </div>
+            <div class="mb-6">
+                <label for="confirm-password-reset" class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+                <input type="password" id="confirm-password-reset" name="confirm-password-reset" required
+                       class="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                       placeholder="Confirm new password">
+            </div>
+            <div id="reset-error" class="text-red-500 text-sm mb-4 text-center hidden">
+                Error resetting password. Please try again.
+            </div>
+            <div id="reset-success" class="text-green-500 text-sm mb-4 text-center hidden">
+                Password updated successfully! You can now log in.
+            </div>
+            <button type="submit"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-md shadow transition duration-150">
+                Set New Password
+            </button>
+        </form>
+        <p class="text-center mt-4">
+            <a href="#" onclick="showLoginScreen()" class="text-sm text-indigo-600 hover:text-indigo-800">Back to Login</a>
+        </p>
+    </div>
+</div>
+
+
+
+        // --- Password Reset Functions ---
+
+        // Function to show the password reset screen
+        function showPasswordResetScreen() {
+            document.getElementById("login-screen").classList.add("hidden");
+            document.getElementById("password-reset-screen").classList.remove("hidden");
+        }
+
+        // Function to show the login screen
+        function showLoginScreen() {
+            document.getElementById("password-reset-screen").classList.add("hidden");
+            document.getElementById("login-screen").classList.remove("hidden");
+            // Clear URL hash to prevent re-triggering reset
+            window.location.hash = ";
+        }
+
+        // Function to handle password reset form submission
+        async function handlePasswordReset(event) {
+            event.preventDefault();
+            const newPassword = document.getElementById("new-password-reset").value;
+            const confirmPassword = document.getElementById("confirm-password-reset").value;
+            const errorDiv = document.getElementById("reset-error");
+            const successDiv = document.getElementById("reset-success");
+
+            errorDiv.classList.add("hidden");
+            successDiv.classList.add("hidden");
+
+            if (newPassword !== confirmPassword) {
+                errorDiv.textContent = "Passwords do not match.";
+                errorDiv.classList.remove("hidden");
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                errorDiv.textContent = "Password must be at least 6 characters long.";
+                errorDiv.classList.remove("hidden");
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase.auth.updateUser({
+                    password: newPassword
+                });
+
+                if (error) {
+                    console.error("Password reset error:", error.message);
+                    errorDiv.textContent = `Error: ${error.message}`;
+                    errorDiv.classList.remove("hidden");
+                } else {
+                    console.log("Password updated successfully:", data);
+                    successDiv.classList.remove("hidden");
+                    // Optionally redirect to login after a delay
+                    setTimeout(showLoginScreen, 3000);
+                }
+            } catch (err) {
+                console.error("Unexpected error during password reset:", err);
+                errorDiv.textContent = "An unexpected error occurred. Please try again.";
+                errorDiv.classList.remove("hidden");
+            }
+        }
+
+        // Check for password recovery token on page load
+        document.addEventListener("DOMContentLoaded", () => {
+            // Add migration button (moved here to ensure it runs after DOM is ready)
+            addMigrationButton();
+
+            // Initialize Flatpickr instances
+            initializeFlatpickr();
+
+            // Initialize time pickers
+            initializeTimePickers();
+
+            // Initialize dashboard clock
+            updateClock();
+            setInterval(updateClock, 1000);
+
+            // Check for Supabase auth state changes (including password recovery)
+            supabase.auth.onAuthStateChange((event, session) => {
+                console.log("Auth state changed:", event, session);
+                if (event === "PASSWORD_RECOVERY") {
+                    console.log("Password recovery event detected.");
+                    showPasswordResetScreen();
+                } else if (event === "SIGNED_IN") {
+                    // Handle sign-in if needed (already handled by handleLogin)
+                } else if (event === "SIGNED_OUT") {
+                    // Handle sign-out if needed (already handled by logout)
+                    showLoginScreen(); // Ensure login screen is shown on sign out
+                }
+            });
+
+            // Initial check in case the event listener doesn't fire immediately
+            const hashParams = new URLSearchParams(window.location.hash.substring(1)); // Remove #
+            if (hashParams.get("type") === "recovery") {
+                 console.log("Password recovery type detected in URL hash.");
+                 // Supabase client automatically handles the session from the recovery token
+                 // The onAuthStateChange listener should trigger and show the reset screen.
+                 // If it doesn't trigger reliably, uncomment the next line:
+                 // showPasswordResetScreen();
+            }
+        });
+
+        // --- Initialization and UI Functions ---
+
