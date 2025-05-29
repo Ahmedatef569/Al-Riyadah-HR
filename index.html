@@ -1010,37 +1010,29 @@
         </div>
     </div>
 
-    <!-- Supabase Integration Script -->
+    <!-- Supabase client will be initialized in the main script block -->
+
+    <!-- Application Script -->
     <script>
         // Supabase configuration
         const SUPABASE_URL = 'https://dyynskyqflewxcfvmdba.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5eW5za3lxZmxld3hjZnZtZGJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg0MzE4OTgsImV4cCI6MjA2NDAwNzg5OH0.awjIjxd1XQIiVwRTFGmwBUT0gPJvCGI5nCbpGJvefEQ';
-
-        // Initialize Supabase client
         let supabase;
 
-        // Wait for Supabase script to load
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize Supabase client once the script is loaded
+        // Robust Supabase Client Initialization
+        document.addEventListener('DOMContentLoaded', () => {
             if (typeof supabaseClient !== 'undefined') {
                 supabase = supabaseClient.createClient(SUPABASE_URL, SUPABASE_KEY);
-                console.log('Supabase client initialized');
+                console.log('Supabase client initialized successfully.');
+                // Now that Supabase is initialized, set up auth listeners and check recovery
+                initializeAuthHandling(); 
             } else {
-                // Retry after a short delay if supabaseClient is not available yet
-                setTimeout(() => {
-                    if (typeof supabaseClient !== 'undefined') {
-                        supabase = supabaseClient.createClient(SUPABASE_URL, SUPABASE_KEY);
-                        console.log('Supabase client initialized (delayed)');
-                    } else {
-                        console.error('Failed to initialize Supabase client: supabaseClient not available');
-                    }
-                }, 1000);
+                console.error('Supabase client library (supabaseClient) not found. Ensure the script tag is loaded correctly.');
+                // Optionally display an error message to the user on the page
+                // document.body.innerHTML = '<h1>Error: Could not load application dependencies. Please refresh.</h1>';
             }
         });
-    </script>
 
-    <!-- Application Script -->
-    <script>
         // Global variables
         let employees = [];
         let leaveRecords = [];
@@ -1063,6 +1055,47 @@
         let genderChartInstance = null;
         let ageChartInstance = null;
         let monthlyHiringChartInstance = null;
+
+        // Function to initialize Supabase auth listeners and check for recovery
+        function initializeAuthHandling() {
+            if (!supabase) {
+                console.error("Supabase client not initialized before auth handling.");
+                return;
+            }
+            console.log("Initializing Supabase auth handling...");
+
+            // Check for Supabase auth state changes (including password recovery)
+            supabase.auth.onAuthStateChange((event, session) => {
+                console.log("Auth state changed:", event, session);
+                if (event === "PASSWORD_RECOVERY") {
+                    console.log("Password recovery event detected.");
+                    showPasswordResetScreen();
+                } else if (event === "SIGNED_IN") {
+                    // Handle sign-in if needed (already handled by handleLogin)
+                    // Potentially check if user is already logged in and skip login screen
+                } else if (event === "SIGNED_OUT") {
+                    // Handle sign-out if needed (already handled by logout)
+                    showLoginScreen(); // Ensure login screen is shown on sign out
+                }
+            });
+
+            // Initial check in case the event listener doesn't fire immediately
+            const hashParams = new URLSearchParams(window.location.hash.substring(1)); // Remove #
+            if (hashParams.get("type") === "recovery") {
+                 console.log("Password recovery type detected in URL hash.");
+                 // Supabase client automatically handles the session from the recovery token
+                 // The onAuthStateChange listener should trigger and show the reset screen.
+                 // If it doesn't trigger reliably, we might need to manually show it here
+                 // showPasswordResetScreen(); 
+            }
+            
+            // Also initialize other things that depend on DOMContentLoaded
+            addMigrationButton();
+            initializeFlatpickr();
+            initializeTimePickers();
+            updateClock();
+            setInterval(updateClock, 1000);
+        }
 
         // --- Authentication Functions ---
 
